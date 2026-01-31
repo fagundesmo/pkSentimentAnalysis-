@@ -2,9 +2,10 @@
 """Pokemon Card Sentiment Analysis — main entry point.
 
 Usage:
-    python main.py                  # scrape all sources
-    python main.py --sources reddit news   # pick specific sources
-    python main.py --news-only      # quick run with news only (no API keys needed)
+    python main.py --no-api         # scrape all free sources (no API keys needed)
+    python main.py --news-only      # quick run with news only
+    python main.py                  # scrape all sources (needs API keys for reddit/twitter)
+    python main.py --sources ebay youtube news   # pick specific sources
 """
 
 import argparse
@@ -22,11 +23,18 @@ from analysis.report import (
 )
 
 # Lazy imports — only load a scraper when it's actually used
+# Sources marked (API) require credentials in .env; the rest are API-free.
 SCRAPER_MODULES = {
-    "reddit": ("scrapers.reddit_scraper", "scrape_reddit"),
-    "twitter": ("scrapers.twitter_scraper", "scrape_twitter"),
     "news": ("scrapers.news_scraper", "scrape_news"),
+    "reddit_public": ("scrapers.reddit_public_scraper", "scrape_reddit_public"),
+    "ebay": ("scrapers.ebay_scraper", "scrape_ebay"),
+    "youtube": ("scrapers.youtube_scraper", "scrape_youtube"),
+    "reddit": ("scrapers.reddit_scraper", "scrape_reddit"),       # API key
+    "twitter": ("scrapers.twitter_scraper", "scrape_twitter"),     # API key
 }
+
+# Sources that work without any API keys
+FREE_SOURCES = ["news", "reddit_public", "ebay", "youtube"]
 
 
 def _get_scraper(name: str):
@@ -50,6 +58,11 @@ def main():
         help="Only scrape Google News (no API keys required)",
     )
     parser.add_argument(
+        "--no-api",
+        action="store_true",
+        help="Scrape all free sources (news, reddit public, ebay, youtube) — no API keys needed",
+    )
+    parser.add_argument(
         "--queries",
         nargs="+",
         default=None,
@@ -61,6 +74,8 @@ def main():
 
     if args.news_only:
         sources = ["news"]
+    elif args.no_api:
+        sources = FREE_SOURCES
     elif args.sources:
         sources = args.sources
     else:
