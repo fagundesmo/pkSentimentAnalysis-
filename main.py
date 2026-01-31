@@ -8,12 +8,10 @@ Usage:
 """
 
 import argparse
+import importlib
 import sys
 
 from config import SEARCH_QUERIES
-from scrapers.reddit_scraper import scrape_reddit
-from scrapers.twitter_scraper import scrape_twitter
-from scrapers.news_scraper import scrape_news
 from analysis.sentiment import run_analysis
 from analysis.report import (
     print_summary,
@@ -23,12 +21,18 @@ from analysis.report import (
     save_csv,
 )
 
-
-SCRAPERS = {
-    "reddit": scrape_reddit,
-    "twitter": scrape_twitter,
-    "news": scrape_news,
+# Lazy imports — only load a scraper when it's actually used
+SCRAPER_MODULES = {
+    "reddit": ("scrapers.reddit_scraper", "scrape_reddit"),
+    "twitter": ("scrapers.twitter_scraper", "scrape_twitter"),
+    "news": ("scrapers.news_scraper", "scrape_news"),
 }
+
+
+def _get_scraper(name: str):
+    module_path, func_name = SCRAPER_MODULES[name]
+    module = importlib.import_module(module_path)
+    return getattr(module, func_name)
 
 
 def main():
@@ -36,7 +40,7 @@ def main():
     parser.add_argument(
         "--sources",
         nargs="+",
-        choices=list(SCRAPERS.keys()),
+        choices=list(SCRAPER_MODULES.keys()),
         default=None,
         help="Sources to scrape (default: all)",
     )
@@ -60,13 +64,13 @@ def main():
     elif args.sources:
         sources = args.sources
     else:
-        sources = list(SCRAPERS.keys())
+        sources = list(SCRAPER_MODULES.keys())
 
     # --- Scrape ---
     all_data: list[dict] = []
     for name in sources:
         print(f"\nScraping {name}...")
-        scraper_fn = SCRAPERS[name]
+        scraper_fn = _get_scraper(name)
         all_data.extend(scraper_fn(queries))
 
     if not all_data:
